@@ -1,0 +1,11 @@
+[package]
+name = "Swarmy"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.14.2", features = ["dynamic_linking"] }
+matplotlib = "0.2.0"
+ndarray = "0.15.6"
+meshgridrs = "0.1.1"
+rand = "0.8.5"
