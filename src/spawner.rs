@@ -122,8 +122,9 @@ pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>){
 
 
 pub fn swarm_impl(
-    time: Res<Time>,
+    _time: Res<Time>,
     mut query: Query<(&mut Particle, &mut Transform)>,
+    mut pred_q: Query<&mut Predator>,
 ) {
     let w = 0.95;      
     let c1 = 1.4;     
@@ -134,14 +135,16 @@ pub fn swarm_impl(
 
     let min_y = -BOUNDS.y / 2.0;
     let max_y = BOUNDS.y / 2.0;
+    let pred = pred_q.single_mut();
 
-    let (best_pos_swarm, _best_fitness_swarm) = set_best(&mut query);
+    let (best_pos_swarm, _best_fitness_swarm) = set_best(&mut query, &pred);
 
     for (mut particle, mut transform) in query.iter_mut() {
         // Calculate the fitness and update the best position if fitness improves
-        let fitness = calculate_fitness(&particle);
-        if fitness > particle.bestfitness {
-            particle.bestfitness = fitness;
+        
+        particle.fitness = calculate_fitness(&particle, &pred);
+        if particle.fitness > particle.bestfitness {
+            particle.bestfitness = particle.fitness;
             particle.best_pos.x = particle.pos.x;
             particle.best_pos.y = particle.pos.y;
         }
@@ -174,12 +177,12 @@ pub fn swarm_impl(
     }
 }
 
-pub fn set_best(query: &mut Query<(&mut Particle, &mut Transform)>) -> (Position, f32) {
+pub fn set_best(query: &mut Query<(&mut Particle, &mut Transform)>, pred: &Predator) -> (Position, f32) {
     let mut all_best_fit: f32 = -(std::f32::INFINITY);
     let mut all_best_pos: Position = Position { x: std::f32::INFINITY, y: std::f32::INFINITY };
 
     for (mut particle, mut _transform) in query.iter_mut() {
-        let calc = calculate_fitness(&particle);
+        let calc = calculate_fitness(&particle, pred);
         if calc > particle.bestfitness {
             particle.bestfitness = calc;
             particle.best_pos.x = particle.pos.x;
@@ -187,7 +190,7 @@ pub fn set_best(query: &mut Query<(&mut Particle, &mut Transform)>) -> (Position
             //println!("Im being updated!");
         }
 
-        if particle.bestfitness > all_best_fit {
+        if particle.fitness > all_best_fit {
             all_best_fit = particle.bestfitness;
             all_best_pos = Position { x: particle.best_pos.x, y: particle.best_pos.y };
             //println!("Updated")
@@ -203,12 +206,18 @@ pub fn set_best(query: &mut Query<(&mut Particle, &mut Transform)>) -> (Position
     return (all_best_pos, all_best_fit);
 }
 
-fn calculate_fitness(p: &Particle) -> f32 {
-    let optimal_pos = Position { x: -300.0, y: 0.0 };
+fn calculate_fitness(p: &Particle, q: &Predator) -> f32 {
+    let optimal_pos = Position { x: 0.0, y: 0.0 };
     let part_pos = &p.pos;
-    
+    let pred_pos: &Position = &q.pos;
+
     let dist = get_dist(part_pos, &optimal_pos);
-    let fitness = 1.0 - (dist * 0.001);
+    let pred_dist = get_dist(part_pos, pred_pos);
+
+    let pred_weight = 1.0 - (0.01 * dist);
+    let opt_weight = 1.0 - pred_weight;
+
+    let fitness = 1.0 - (opt_weight*(dist * 0.001) - pred_weight*(pred_dist*0.001));
 
     //println!("FITNESS {}", fitness);
     
@@ -257,7 +266,7 @@ pub fn predator_move(
         transform.translation.y += to_part_normalized.y * speed * delta_time;
     } else {
         // Keep facing the closest particle without moving
-        println!("AHHHHHHHHHHHHHHHH");
+        //println!("AHHHHHHHHHHHHHHHH");
         let to_part = Vec2::new(min_part_pos.x - pred_pos.x, min_part_pos.y - pred_pos.y).normalize();
         let rotate_to_part = Quat::from_rotation_arc(Vec3::Y, to_part.extend(0.));
         let offset_rotation = Quat::from_rotation_z(-std::f32::consts::PI / 2.0);
