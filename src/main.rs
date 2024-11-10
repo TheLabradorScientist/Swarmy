@@ -11,7 +11,7 @@ fn main() {
                 .set(ImagePlugin::default_nearest())
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        title: "Galileo".into(),
+                        title: "{ SWARMY }".into(),
                         resolution: (1280.0, 720.0).into(),
                         resizable: false,
                         ..default()
@@ -22,11 +22,10 @@ fn main() {
         )
         .add_plugins(HelloPlugin)
         .insert_resource(Time::<Fixed>::from_hz(60.0))
-        .add_systems(Startup, spawner::setup)
-        .add_systems(FixedUpdate, (
-            spawner::particle_movement_system,
-            spawner::set_best,
-        ))
+        .add_systems(Startup, (spawner::setup_bg, spawner::setup).chain())
+        .add_systems(FixedUpdate, 
+            (spawner::swarm_impl, spawner::predator_move)
+        )
         .run();
 }
 
